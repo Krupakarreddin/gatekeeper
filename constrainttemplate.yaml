@@ -16,25 +16,27 @@ spec:
   targets:
     - target: admission.k8s.gatekeeper.sh
       rego: |
-        package kubernetes.admission
-
-        import data.kubernetes.ingresses
+        package kubernetes.validating.ingress
 
         deny[msg] {
-          # We define variables that we use as keys when iterating through the ingresses dictionary
-            some other_ns, other_ingress
-            # We are only interested in Ingress requests
+            is_ingress
+            input_host := input.request.object.spec.rules[_].host
+            some other_ns, other_name
+            other_host :=
+            data.kubernetes.ingresses[other_ns][other_name].spec.rules[_].host
+            [input_ns, input_name] != [other_ns, other_name]
+
+            input_host == other_host
+
+            msg := sprintf("Ingress host conflicts with ingress %v/%v", [other_ns, other_name])
+        }
+
+        input_ns = input.request.object.metadata.namespace
+
+        input_name = input.request.object.metadata.name
+
+        is_ingress {
             input.request.kind.kind == "Ingress"
-            # that asks for creation (other requests should be ignored by this policy)
-            input.request.operation == "CREATE"
-            # Extract the host part of the requests JSON object
-            host := input.request.object.spec.rules[_].host
-            # Get all the existing ingresses. Make sure you identify the namespace (other_ns) and the ingress name (other_ingress)
-            ingress := ingresses[other_ns][other_ingress]
-            # We are not interested in Ingress requests in the same namespace
-            other_ns != input.request.namespace
-            # Do we have an existing ingress that has a host matching the one in the ingress definition?
-            ingress.spec.rules[_].host == host
-            # If yes, then this policy is vilated. We need to send an informative message to the client detailing which part of the ingress violated the policy
-            msg := sprintf("invalid ingress host %q (conflicts with %v/%v)", [host, other_ns, other_ingress])
+            input.request.kind.group == "networking.k8s.io"
+            input.request.kind.version == "v1"
         }
