@@ -1,4 +1,4 @@
-apiVersion: templates.gatekeeper.sh/v1
+apiVersion: templates.gatekeeper.sh/v1beta1
 kind: ConstraintTemplate
 metadata:
   name: k8suniqueingresshost
@@ -11,7 +11,7 @@ spec:
     - target: admission.k8s.gatekeeper.sh
       rego: |
         package k8suniqueingresshost
-
+       
         identical(obj, review) {
           obj.metadata.namespace == review.object.metadata.namespace
           obj.metadata.name == review.object.metadata.name
